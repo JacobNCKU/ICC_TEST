@@ -1,0 +1,267 @@
+module JAM (
+input CLK,
+input RST,
+output reg [2:0] W,
+output reg [2:0] J,
+input [6:0] Cost,
+output reg [3:0] MatchCount,
+output reg [9:0] MinCost,
+output reg Valid );
+
+//machine variable
+reg [2:0]  st_next;
+reg [2:0]  st_cur;
+parameter  IDLE = 3'd0;
+parameter  READ = 3'd1;
+parameter  SORT = 3'd2;
+parameter  CAL  = 3'd3;
+parameter  OUT  = 3'd4;
+
+reg found;
+reg [6:0] costs[0:7][0:7];
+
+reg [2:0] x,y,ctr,ctr_min,min;
+
+integer i,k;
+reg [6:0] Matrix[0:7];
+reg [6:0] Min_Matrix[0:7];
+reg [9:0] temp_Cost;
+
+reg [3:0] MatchCount_reg;
+reg [2:0] Locat_Matrix[0:7];
+
+always @(posedge CLK or posedge RST) begin
+    if(RST) 
+        st_cur  <= 3'd0 ;
+    else 
+        st_cur  <= st_next ;
+end
+
+always @(*) begin
+    case(st_cur)
+        IDLE:
+            st_next <= READ; 
+        READ:
+            if(W==3'd7&&J==3'd7)
+                st_next <= SORT;
+            else
+                st_next <= READ;
+        SORT:
+            if(found == 1'd1)
+                st_next <= CAL;
+            else
+                st_next <= st_next;  
+        CAL:
+            if(MinCost != 10'd0 && MatchCount != 4'd0)
+                st_next <= OUT;
+            else
+                st_next <= st_next;
+        OUT:
+            st_next <= st_next;
+        default:st_next = IDLE ;
+    endcase
+end
+
+always @(posedge CLK or posedge RST) begin
+    if(RST)begin
+        for(i=0;i<8;i=i+1)
+            Matrix[i] <= 0;
+    end
+    else if (st_cur == READ)begin
+        Matrix[ctr] <= Cost;
+    end
+    else if (st_cur == SORT)begin
+        if(Locat_Matrix [ctr] > Locat_Matrix [ctr + 3'd1] && (ctr_min != (ctr+3'd1)))
+            if(ctr_min==3'd0)
+                min <= ctr_min;
+            else if(Matrix[ctr+3'd1] < Matrix[ctr_min] && Matrix[min] > Matrix[ctr_min])
+                min <= ctr_min;
+            else 
+                min <= min;
+        else if(Locat_Matrix [ctr] > Locat_Matrix [ctr + 3'd1] && (ctr_min == (ctr+3'd1)&& found == 1'd0))begin
+            Locat_Matrix[min] <= Locat_Matrix[ctr+1]; 
+            Locat_Matrix[ctr+1] <= Locat_Matrix[min];
+        end
+        else if((ctr+3'd1) < ctr && ctr_min ==(ctr+3'd1) && found == 1'd1)begin
+            for(i=0; i<=ctr; i = i + 1)begin
+                if( (ctr-i)> i)begin
+                    Locat_Matrix[ctr-i] <= Locat_Matrix[i];
+                    Locat_Matrix[i] <= Locat_Matrix[ctr-i];
+                end
+            end
+        end
+    end
+end
+always @(posedge CLK or posedge RST) begin
+    if(RST)begin
+        for (i = 0; i < 8; i = i + 1) begin
+            for (k = 0; k < 8; k = k + 1) begin
+                costs[i][k] <= 7'd0;
+            end
+        end
+    end
+    else if(st_cur == READ)
+        costs[J][W]=Cost;
+    else if(st_cur == CAL)
+        temp_Cost <= costs[J][W] + temp_Cost;
+    else
+        for (i = 0; i < 8; i = i + 1) begin
+            for (k = 0; k < 8; k = k + 1) begin
+                costs[i][k] <= 7'd0;
+            end
+        end
+end
+
+always @(posedge CLK or posedge RST) begin
+    if(RST)begin
+        W <= 3'd0;
+    end
+    else if (st_cur == READ)begin
+        if( W < 7)begin
+            W <= W + 3'd1;
+        else 
+            W <= 3'd0;
+        end
+    end
+    else if(st_cur == (SORT || CAL) && found == 1'b1)begin
+            W <= W + 3'd1;
+    end
+    else begin 
+            W <= 3'd0;
+    end
+end
+always @(posedge CLK or posedge RST) begin
+    if(RST)begin
+        J <= 3'd0;
+    end
+    else if (st_cur == READ)begin
+        if( J < 7 && W==3'd7) begin
+            J <= J + 3'd1;
+        else 
+            J <= 3'd0;
+    end
+    end
+    else begin 
+        J <= 3'd0;
+    end
+end
+always @(posedge CLK or posedge RST) begin
+    if (RST) 
+        MinCost <= 10'd0;
+    else if(MinCost > temp_Cost)
+        MinCost <= temp_Cost;   
+    else if(MinCost < temp_Cost)
+        MinCost <= MinCost;
+    else
+        MinCost <= 10'd0;
+end
+
+always @(posedge CLK or posedge RST) begin
+    if (RST) 
+        for(i=0;i<8;i=i+1)
+            Min_Matrix[i] <= 3'd0;
+    else if(MinCost > temp_Cost)
+        for(i=0;i<8;i=i+1)
+            Min_Matrix[i] <= Matrix[i];
+    else if(MinCost < temp_Cost)
+        for(i=0;i<8;i=i+1)
+            Min_Matrix[i] <= Min_Matrix[i];
+    else
+        for(i=0;i<8;i=i+1)
+            Min_Matrix[i] <= 3'd0;
+end
+
+//MatchCount
+always @(posedge CLK or posedge RST) begin
+    if(RST)
+        MatchCount_reg <= 4'd0;
+    else if(st_cur == CAL)begin
+        MatchCount_reg <= MatchCount_reg + 4'd1;
+        if(temp_Cost < MinCost)
+            MatchCount <= MatchCount_reg;
+        else
+            MatchCount <= MatchCount;
+    end
+    else
+        MatchCount_reg <= 4'd0;
+end
+
+//valid
+always @(posedge CLK or posedge RST) begin
+    if(RST)
+        Valid <= 1'd0;
+    else if(st_cur == OUT && MinCost != 10'd0 && MatchCount != 4'd0)
+        Valid <= 1'd1;
+    else 
+        Valid <= 1'd0;
+end
+
+// SORT counter
+always @(posedge CLK or posedge RST) begin
+    if(RST)
+        ctr <= 3'd0;
+    else if(st_cur == READ)
+        ctr <= ctr +3'd1;
+    else if(st_cur == SORT)
+        ctr <= ctr + 3'd1;
+    else   
+        ctr <= 3'd0;
+end
+
+always @(posedge CLK or posedge RST) begin
+    if(RST)
+        ctr_min <= 3'd0;
+    else if(st_cur == SORT && (Locat_Matrix[ctr+1] < Locat_Matrix[ctr]))
+        ctr_min <= ctr_min + 3'd1;
+    else   
+        ctr_min <= 3'd0;
+end
+
+always @(posedge CLK or posedge RST) begin
+    if(RST)
+        found <= 1'd0;
+    else if( st_cur == (SORT || CAL))
+        if(Locat_Matrix[ctr+3'd1] < Locat_Matrix[ctr] && ctr_min == (ctr+3'd1))
+            found <= 1'd1;
+        else
+            found <= found;
+    else
+        found <= 1'd0;
+end
+
+// CAL counter
+always @(posedge CLK or posedge RST ) begin
+    if(RST)
+        y <= 3'd0;
+    else if(st_cur == CAL)
+        y <= y + 3'd1;
+    else
+        y <= 3'd0;
+end
+
+endmodule
+
+/*
+    else if(st_cur == SORT)begin
+        if(ctr+3'd1 < ctr && ctr_min != (ctr+3'd1))begin
+            if(ctr_min==3'd0)
+                min<=ctr_min;
+            else if(ctr+3'd1 < ctr_min && min > ctr_min)
+                min<=ctr_min;
+            else 
+                min <= min;
+        end
+        else if(ctr+3'd1 < ctr && ctr_min ==(ctr+3'd1) && found == 1'd0)begin
+            ctr <= min - 3'd1;
+            min <= ctr+1;
+        end
+        else if(ctr+3'd1 < ctr && ctr_min ==(ctr+3'd1) && found == 1'd1)begin
+            for(i=0; i<=ctr; i = i + 1)begin
+                if((ctr-k)>k)begin
+                    (ctr-k) <= k;
+                    k <= ctr-k;
+                end
+            end
+        end 
+    end
+*/
