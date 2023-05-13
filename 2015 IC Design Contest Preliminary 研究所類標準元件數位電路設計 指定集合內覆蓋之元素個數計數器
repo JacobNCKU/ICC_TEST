@@ -1,107 +1,113 @@
-module SET ( clk , rst, en, central, radius, mode, busy, valid, candidate );
-
-input clk, rst;
-input en;
-input [23:0] central;
-input [11:0] radius;
-input [1:0] mode;
-output busy;
-output valid;
-output [7:0] candidate;
+module SET (
+    input clk,
+    input rst,
+    input en,
+    input [23:0] central,
+    input [11:0] radius,
+    input [1:0] mode,
+    output busy,
+    output valid,
+    output [7:0] candidate
+);
 
 reg valid;
-reg [7:0]candidate;
+reg [7:0] candidate;
 reg busy;
 
-reg [3:0]x1,x2,x3;
-reg [3:0]y1,y2,y3;
-reg [3:0]r1,r2,r3;
+reg [3:0] x1, x2, x3;
+reg [3:0] y1, y2, y3;
+reg [3:0] r1, r2, r3;
 
+wire [8:0] test1, test2, test3;
+wire [6:0] r1_root, r2_root, r3_root;
 
-wire [8:0]test1,test2,test3;
-wire [6:0]r1_root,r2_root,r3_root;
+reg [1:0] cs, ns;
+reg [3:0] ctr_x, ctr_y;
 
-reg [1:0] cs,ns;
-reg [3:0] ctr_x,ctr_y;
-
-parameter IDLE= 3'd0;
+parameter IDLE = 3'd0;
 parameter GET = 3'd1;
 parameter CAL = 3'd2;
 
-
+// Sequential logic for the state machine
 always @(posedge clk or posedge rst) begin
-    if(rst)
+    if (rst)
         cs <= IDLE;
     else
         cs <= ns;
 end
 
-always@(*) begin
-    case(cs)
+// Combinational logic for state transitions
+always @(*) begin
+    case (cs)
         IDLE:
-            if(en)
-				ns = GET ;
-			else
-			    ns = IDLE ;
-		GET : 
-            if(~en)
+            if (en)
+                ns = GET;
+            else
+                ns = IDLE;
+        GET:
+            if (~en)
                 ns = CAL;
             else
                 ns = GET;
         CAL:
-            if(ctr_x == 8 & ctr_y ==8)
+            if (ctr_x == 8 && ctr_y == 8)
                 ns = IDLE;
             else
                 ns = CAL;
-	    default : ns = IDLE;	
-	endcase
+        default:
+            ns = IDLE;
+    endcase
 end
 
+// Output logic for 'busy' signal
 always @(posedge clk or posedge rst) begin
-    if(rst)
+    if (rst)
         busy <= 0;
-    else if(~en & ctr_x == 8 & ctr_y ==8)
+    else if (~en && ctr_x == 8 && ctr_y == 8)
         busy <= 1;
     else
         busy <= 0;
 end
 
+// Output logic for 'valid' signal
 always @(posedge clk or posedge rst) begin
-    if(rst)
+    if (rst)
         valid <= 0;
-    else if(cs == CAL & ctr_x == 8 & ctr_y == 8)
+    else if (cs == CAL && ctr_x == 8 && ctr_y == 8)
         valid <= 1;
     else
         valid <= 0;
 end
 
+// Logic to update the counter values
 always @(posedge clk or posedge rst) begin
-    if(rst)begin
+    if (rst) begin
         ctr_x <= 1;
         ctr_y <= 1;
     end
-    else if( cs == CAL & ( mode==0 || mode==1 || mode==2 || mode==3 ))begin
-        if(ctr_x != 8)
-            ctr_x<=ctr_x+1;
-        else if(ctr_y != 8)begin
-            ctr_x<=1;
-            ctr_y<=ctr_y+1;
+    else if (cs == CAL && (mode == 0 || mode == 1 || mode == 2 || mode == 3)) begin
+        if (ctr_x != 8)
+            ctr_x <= ctr_x + 1;
+        else if (ctr_y != 8) begin
+            ctr_x <= 1;
+            ctr_y <= ctr_y + 1;
         end
-        else if (ctr_y==8) begin
-            ctr_x<=1;
-            ctr_y<=1;
+        else if (ctr_y == 8) begin
+            ctr_x <= 1;
+            ctr_y <= 1;
         end
     end
 end
 
- assign    test1 = (x1-ctr_x)*(x1-ctr_x) + (y1-ctr_y)*(y1-ctr_y); 
- assign    r1_root = r1*r1;
+// Calculate the distances and squares of radii
+assign test1 = (x1 - ctr_x) * (x1 - ctr_x) + (y1 - ctr_y) * (y1 - ctr_y);
+assign r1_root = r1 * r1;
 
- assign    test2 = (x2-ctr_x)*(x2-ctr_x) + (y2-ctr_y)*(y2-ctr_y);
- assign    r2_root = r2*r2;
+assign test2 = (x2 - ctr_x) * (x2 - ctr_x) + (y2 - ctr_y) * (y2 - ctr_y);
+assign r2_root = r2 * r2;
 
- assign   test3 = (x3-ctr_x)*(x3-ctr_x) + (y3-ctr_y)*(y3-ctr_y);
- assign   r3_root = r3*r3;  
+assign   test3 = (x3-ctr_x)*(x3-ctr_x) + (y3-ctr_y)*(y3-ctr_y);
+assign   r3_root = r3*r3;  
 
 always @(posedge clk or posedge rst) begin
     if(rst)begin
@@ -147,21 +153,20 @@ end
 
 
 always @(posedge clk or posedge rst) begin
-    if(rst)begin
-        x1 <= 3'd0;
-        y2 <= 3'd0;
-        x2 <= 3'd0;
-        y1 <= 3'd0;
-        x2 <= 3'd0;
-        y3 <= 3'd0;
+    if(rst) begin
+        x1 <= 3'd0; // Reset x1 to 0
+        y2 <= 3'd0; // Reset y2 to 0
+        x2 <= 3'd0; // Reset x2 to 0
+        y1 <= 3'd0; // Reset y1 to 0
+        x2 <= 3'd0; // Reset x2 to 0
+        y3 <= 3'd0; // Reset y3 to 0
     end
     else if(en) begin
-        x1 <= central[23:20];
-        y1 <= central[19:16];
-        x2 <= central[15:12];
-        y2 <= central[11:8];
-        x3 <= central[7:4];
-        y3 <= central[3:0];
+        x1 <= central[23:20]; // Assign the value of bits 23 to 20 of central to x1
+        y1 <= central[19:16]; // Assign the value of bits 19 to 16 of central to y1
+        x2 <= central[15:12]; // Assign the value of bits 15 to 12 of central to x2
+        y2 <= central[11:8];  // Assign the value of bits 11 to 8 of central to y2
+        x3 <= central[7:4];   // Assign the value of bits 7 to 4 of central to
     end
 end
 
