@@ -1,3 +1,23 @@
+/////
+This code appears to be a Verilog implementation of a finite state machine (FSM) called "JAM". The FSM has five states, with the following names and IDs:
+
+- IDLE (0)
+- READ (1)
+- SORT (2)
+- CAL (3)
+- OUT (4)
+
+The inputs to the module are a clock signal (CLK), a reset signal (RST), and a 7-bit signal (Cost) that is used to input cost data into the module. The outputs of the module are:
+
+- W: a 3-bit signal that is used to select the row of a 2D array called "costs".
+- J: a 3-bit signal that is used to select the column of the "costs" array.
+- MatchCount: a 4-bit signal that keeps track of the number of elements in the "costs" array that have a value of 0.
+- MinCost: a 10-bit signal that holds the minimum value of all the elements in the "costs" array.
+- Valid: a 1-bit signal that is used to indicate whether the current data in the "costs" array is valid.
+
+The module contains several registers, arrays, and variables that are used to perform calculations and store data. The operation of the FSM appears to involve reading in cost data, sorting the data, and then performing some calculations to determine the minimum cost and number of matches. However, without additional information about the purpose of the module or the context in which it is being used, it is difficult to provide a more detailed analysis.
+
+/////
 module JAM (
 input CLK,
 input RST,
